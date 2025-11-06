@@ -16,7 +16,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/aadibr/AWS-ECR.git'  // HTTPS URL
+                git 'https://github.com/aadibr/AWS-ECR.git'
             }
         }
 
@@ -31,4 +31,37 @@ pipeline {
             steps {
                 echo "Logging in to AWS ECR..."
                 sh """
-                aws ecr get-login-password --reg
+                    aws ecr get-login-password --region ${AWS_REGION} | \
+                    docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                """
+            }
+        }
+
+        stage('Tag Docker Image') {
+            steps {
+                echo "Tagging Docker image..."
+                sh """
+                    docker tag ${IMAGE_NAME}:latest \
+                    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:latest
+                """
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo "Pushing Docker image to ECR..."
+                sh "docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:latest"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Docker image pushed to AWS ECR successfully!"
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+    }
+}
+
